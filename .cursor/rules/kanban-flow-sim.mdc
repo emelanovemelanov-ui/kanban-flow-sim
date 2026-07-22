@@ -1,0 +1,54 @@
+---
+description: Контекст учебной Kanban-игры Kanban Flow Sim / ТехВилл
+alwaysApply: true
+---
+
+# Kanban Flow Sim
+
+Учебный браузерный прототип getKanban-подобной симуляции. Бренд UI: **Kanban** / **ТехВилл** (зелёный `#2dbe64`). Язык интерфейса — русский.
+
+## Стек
+
+- Vite + React 19 + TypeScript
+- Состояние: `useReducer` в `src/App.tsx`, движок в `src/game/`
+- Бэкенда нет — только статика
+
+## Архитектура
+
+| Путь | Назначение |
+|------|------------|
+| `src/game/engine.ts` | WIP, assign/roll/deploy/finance, placement |
+| `src/game/flow.ts` | Цикл дня (`primaryAction`), события, CFD/LT (`trackCharts`) |
+| `src/game/tickets.ts` | Карточки, effort, `subscribersForLeadTime` |
+| `src/game/events.ts` | События по дням, `snapshotCfd` |
+| `src/components/` | Board, GameBar, ChartsModal, TicketCard, … |
+| `scripts/playthrough.ts` | Автобот полного прохода |
+
+## Правила игры (важно)
+
+- Дни **9–21**, биллинг **9 / 12 / 15 / 18 / 21**
+- Цикл дня: standup → assign → roll → (billing: deploy + finance) → event → next day
+- Остаток очков после броска **сгорает** (отдельного UI траты нет)
+- Релиз в «Выпущено» только в дни биллинга кнопкой «Выпустить» из «К релизу»
+- P1 (розовый) только на блокер; назначается без pull в doing
+- Тариф биллинга: `(10 + cycleIndex * 5) * 10` → $100 / $150 / $200 / $250 / $300
+- Standard: подписчики от lead time + value band; штраф F1 на дне 15 если не выпущен ($2200)
+
+## Графики (кнопки CFD / $ / LT)
+
+Данные: `state.cfd`, `state.financeLog`, `state.leadTimeLog`. UI: `ChartsModal.tsx`.
+
+## Бот
+
+```bash
+node --experimental-strip-types --import ./scripts/register.mjs scripts/playthrough.ts
+node … scripts/playthrough.ts --wip=tight|balanced|wide|default
+node … scripts/playthrough.ts --suite
+```
+
+## Соглашения при правках
+
+- Не публиковать игру наружу без явной просьбы пользователя
+- Коммиты — только по запросу
+- UI и подсказки — на русском; код/идентификаторы — на английском
+- Не раздувать scope: точечные изменения под задачу
