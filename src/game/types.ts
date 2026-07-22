@@ -93,7 +93,7 @@ export interface GameState {
   rolledThisDay: boolean
   deployedThisCycle: string[]
   /** Активная карточка события (нужно подтвердить). */
-  activeEvent: { day: number; title: string; body: string } | null
+  activeEvent: import('./events').ActiveEvent | null
   eventLog: string[]
   cfd: import('./events').CfdPoint[]
   leadTimeLog: { day: number; ticketId: string; leadTime: number; class: TicketClass }[]

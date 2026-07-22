@@ -138,37 +138,55 @@ export function ticketsIn(state: FullState, column: ColumnId, expediteOnly = fal
 
 export function countWip(state: FullState, area: 'selected' | 'analysis' | 'development' | 'test' | 'expedite'): number {
   if (area === 'selected') {
-    return state.tickets.filter((t) => columnOf(state, t.id) === 'selected' && !t.expediteLane).length
+    return state.tickets.filter((t) => columnOf(state, t.id) === 'selected').length
   }
   if (area === 'analysis') {
     return state.tickets.filter((t) => {
       const c = columnOf(state, t.id)
-      return (c === 'analysisDoing' || c === 'analysisDone') && !t.expediteLane
+      return c === 'analysisDoing' || c === 'analysisDone'
     }).length
   }
   if (area === 'development') {
     return state.tickets.filter((t) => {
       const c = columnOf(state, t.id)
-      return (c === 'devDoing' || c === 'devDone') && !t.expediteLane
+      return c === 'devDoing' || c === 'devDone'
     }).length
   }
   if (area === 'test') {
-    return state.tickets.filter((t) => columnOf(state, t.id) === 'test' && !t.expediteLane).length
+    return state.tickets.filter((t) => columnOf(state, t.id) === 'test').length
   }
-  return state.tickets.filter((t) => t.expediteLane && columnOf(state, t.id) !== 'options' && columnOf(state, t.id) !== 'deployed').length
+  return state.tickets.filter(
+    (t) => t.expediteLane && columnOf(state, t.id) !== 'options' && columnOf(state, t.id) !== 'deployed',
+  ).length
 }
 
 export function canPullInto(state: FullState, target: ColumnId, ticket: Ticket): boolean {
+  const from = columnOf(state, ticket.id)
+
+  // Срочная дорожка имеет свой WIP, но колоночные лимиты тоже действуют
   if (ticket.expediteLane) {
-    if (countWip(state, 'expedite') >= state.wip.expedite && columnOf(state, ticket.id) === 'options') {
+    const alreadyInFlight = from !== 'options' && from !== 'deployed'
+    if (!alreadyInFlight && countWip(state, 'expedite') >= state.wip.expedite) {
       return false
     }
-    return true
   }
-  if (target === 'selected') return countWip(state, 'selected') < state.wip.selected
-  if (target === 'analysisDoing' || target === 'analysisDone') return countWip(state, 'analysis') < state.wip.analysis
-  if (target === 'devDoing' || target === 'devDone') return countWip(state, 'development') < state.wip.development
-  if (target === 'test') return countWip(state, 'test') < state.wip.test
+
+  if (target === 'selected') {
+    if (from === 'selected') return true
+    return countWip(state, 'selected') < state.wip.selected
+  }
+  if (target === 'analysisDoing' || target === 'analysisDone') {
+    if (from === 'analysisDoing' || from === 'analysisDone') return true
+    return countWip(state, 'analysis') < state.wip.analysis
+  }
+  if (target === 'devDoing' || target === 'devDone') {
+    if (from === 'devDoing' || from === 'devDone') return true
+    return countWip(state, 'development') < state.wip.development
+  }
+  if (target === 'test') {
+    if (from === 'test') return true
+    return countWip(state, 'test') < state.wip.test
+  }
   return true
 }
 
@@ -407,6 +425,17 @@ export function assignDie(state: FullState, dieId: string, ticketId: string | nu
   }
 
   if (col === 'selected' || col === 'analysisDone' || col === 'devDone') {
+    if (state.testPolicyStrict && die.specialty !== 'test') {
+      const wouldEnterTest =
+        col === 'devDone' ||
+        (col === 'selected' && ticket.work.analysis <= 0 && ticket.work.development <= 0 && ticket.work.test > 0)
+      if (wouldEnterTest) {
+        return {
+          ...state,
+          message: 'Политика Карлоса: на тестирование можно назначать только тестировщиков.',
+        }
+      }
+    }
     const pulled = ensureDoingColumn(next, ticketId, die.specialty)
     if (pulled.message.startsWith('WIP') || pulled.message.startsWith('Нельзя') || pulled.message.includes('заполнен')) {
       return pulled
@@ -423,7 +452,17 @@ export function assignDie(state: FullState, dieId: string, ticketId: string | nu
   // Для срочной дорожки: специальность по оставшейся работе
   let workSpecialty = autoSpecialty
   if (ticket.expediteLane || col === 'analysisDoing' || col === 'devDoing' || col === 'test') {
-    workSpecialty = specialty ?? specialtyForColumn(col) ?? preferredSpecialtyForTicket(next.tickets.find((t) => t.id === ticketId) ?? ticket, die.specialty)
+    workSpecialty =
+      specialty ??
+      specialtyForColumn(col) ??
+      preferredSpecialtyForTicket(next.tickets.find((t) => t.id === ticketId) ?? ticket, die.specialty)
+  }
+
+  if (state.testPolicyStrict && workSpecialty === 'test' && die.specialty !== 'test') {
+    return {
+      ...state,
+      message: 'Политика Карлоса: на тестирование можно назначать только тестировщиков.',
+    }
   }
 
   return {

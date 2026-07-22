@@ -58,17 +58,8 @@ function applyEventEffects(state: FullState, event: GameEvent): FullState {
         notes.push(`+тестировщик ${effect.id}`)
       }
     }
-    if (effect.type === 'hireTester') {
-      if (next.cash >= effect.cost && !next.dice.some((d) => d.id === effect.id)) {
-        next = {
-          ...next,
-          cash: next.cash - effect.cost,
-          dice: [...next.dice, makeDie(effect.id, 'green', 'test')],
-        }
-        notes.push(`нанят ${effect.id} (−$${effect.cost})`)
-      } else if (next.cash < effect.cost) {
-        notes.push(`найм ${effect.id} недоступен (мало денег)`)
-      }
+    if (effect.type === 'offerHire') {
+      notes.push(`предложение найма ${effect.id} (−$${effect.cost})`)
     }
     if (effect.type === 'addTicket') {
       if (!next.tickets.some((t) => t.id === effect.ticket.id)) {
@@ -113,24 +104,51 @@ export function presentEvent(state: FullState): FullState {
     return { ...state, step: 'event', activeEvent: null, message: 'Событий нет — завершите день.' }
   }
   const withEffects = applyEventEffects(state, event)
+  const hire = event.effects.find((e): e is Extract<typeof e, { type: 'offerHire' }> => e.type === 'offerHire')
   return {
     ...withEffects,
     step: 'event',
-    activeEvent: { day: event.day, title: event.title, body: event.body },
+    activeEvent: {
+      day: event.day,
+      title: event.title,
+      body: event.body,
+      choice: hire ? { type: 'hireTester', id: hire.id, cost: hire.cost } : undefined,
+    },
   }
 }
 
-export function acknowledgeEvent(state: FullState): FullState {
+export function acknowledgeEvent(state: FullState, answer?: boolean): FullState {
   if (state.gameOver) {
     return { ...state, message: `Игра окончена. Прибыль $${state.cash}, подписчики ${state.subscribers}.` }
   }
-  const cleared = { ...state, activeEvent: null }
-  if (state.pendingGameOver || state.day >= 21) {
+
+  let cleared: FullState = { ...state, activeEvent: null }
+  const choice = state.activeEvent?.choice
+  if (choice?.type === 'hireTester') {
+    if (answer === true) {
+      if (cleared.cash >= choice.cost && !cleared.dice.some((d) => d.id === choice.id)) {
+        cleared = {
+          ...cleared,
+          cash: cleared.cash - choice.cost,
+          dice: [...cleared.dice, makeDie(choice.id, 'green', 'test')],
+          message: `Нанят ${choice.id} (−$${choice.cost}).`,
+        }
+      } else if (cleared.cash < choice.cost) {
+        cleared = { ...cleared, message: `Найм ${choice.id} отклонён: недостаточно средств (нужно $${choice.cost}).` }
+      } else {
+        cleared = { ...cleared, message: `${choice.id} уже в команде.` }
+      }
+    } else {
+      cleared = { ...cleared, message: `Найм ${choice.id} отклонен.` }
+    }
+  }
+
+  if (cleared.pendingGameOver || cleared.day >= 21) {
     return {
       ...cleared,
       gameOver: true,
       step: 'event',
-      message: `Игра окончена! Итоговая прибыль: $${state.cash}. Подписчики: ${state.subscribers}.`,
+      message: `Игра окончена! Итоговая прибыль: $${cleared.cash}. Подписчики: ${cleared.subscribers}.`,
     }
   }
   return endDay(cleared)
@@ -140,13 +158,16 @@ export function acknowledgeEvent(state: FullState): FullState {
  * Единый алгоритм главной кнопки по ТЗ:
  * standup → work(roll) → [deploy → charts → finance] | charts → event → next day
  */
-export function primaryAction(state: FullState): FullState {
+export function primaryAction(state: FullState, eventAnswer?: boolean): FullState {
   if (state.gameOver) {
     return { ...state, message: 'Симуляция завершена. Нажмите «Сброс» для новой партии.' }
   }
 
   if (state.activeEvent) {
-    return acknowledgeEvent(state)
+    if (state.activeEvent.choice && eventAnswer === undefined) {
+      return { ...state, message: 'Выберите «Да» или «Нет» в окне события.' }
+    }
+    return acknowledgeEvent(state, eventAnswer)
   }
 
   switch (state.step as DayStep) {
@@ -194,6 +215,7 @@ export function primaryAction(state: FullState): FullState {
 
 export function primaryLabel(state: FullState): string {
   if (state.gameOver) return 'Игра окончена'
+  if (state.activeEvent?.choice) return 'Выберите Да / Нет'
   if (state.activeEvent) return 'Принять событие'
   if (state.step === 'standup') return 'Завершить стендап'
   if (state.step === 'work' && !state.rolledThisDay) return 'Бросить кубики'

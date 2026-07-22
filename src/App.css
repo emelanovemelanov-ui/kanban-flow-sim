@@ -874,7 +874,26 @@ button {
 }
 
 .modal-card .btn-start {
+  margin-top: 0.35rem;
   width: 100%;
+}
+
+.modal-choice-meta {
+  margin: 0.25rem 0 0.75rem !important;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.modal-actions .btn-start,
+.modal-actions .btn-exit {
+  min-width: 5.5rem;
+  width: auto;
 }
 
 .chart-backdrop {

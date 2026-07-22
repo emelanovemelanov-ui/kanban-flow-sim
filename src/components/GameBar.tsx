@@ -69,7 +69,7 @@ export function GameBar({ state, onPrimary, onReset, onClearWorker, onOpenChart 
           {free.length === 0 && <em className="staff-empty">все на карточках</em>}
         </div>
         {state.testPolicyStrict && (
-          <small className="staff-hint">Политика: в тесте только зелёные</small>
+          <small className="staff-hint">Политика Карлоса: в тесте только тестировщики</small>
         )}
       </div>
 

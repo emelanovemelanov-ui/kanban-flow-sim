@@ -22,6 +22,7 @@ type Action =
   | { type: 'assign'; dieId: string; ticketId: string }
   | { type: 'clearDie'; dieId: string }
   | { type: 'primary' }
+  | { type: 'eventChoice'; yes: boolean }
   | { type: 'wip'; key: keyof WipLimits; delta: number }
   | { type: 'drop'; ticketId: string; target: DropTarget }
   | { type: 'reset' }
@@ -36,6 +37,8 @@ function reducer(state: FullState, action: Action): FullState {
       return assignDie(state, action.dieId, null)
     case 'primary':
       return primaryAction(state)
+    case 'eventChoice':
+      return primaryAction(state, action.yes)
     case 'wip':
       return setWip(state, action.key, state.wip[action.key] + action.delta)
     case 'drop':
@@ -77,7 +80,11 @@ export default function App() {
         />
 
       </div>
-      <EventModal state={state} onAck={() => dispatch({ type: 'primary' })} />
+      <EventModal
+        state={state}
+        onAck={() => dispatch({ type: 'primary' })}
+        onChoice={(yes) => dispatch({ type: 'eventChoice', yes })}
+      />
       {chart && <ChartsModal state={state} kind={chart} onClose={() => setChart(null)} />}
     </div>
   )

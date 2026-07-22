@@ -16,6 +16,7 @@ import {
   type FullState,
 } from '../src/game/engine'
 import { primaryAction } from '../src/game/flow'
+import { computeLostOpportunity } from '../src/game/opportunity'
 import type { ColumnId, Specialty, WipLimits } from '../src/game/types'
 
 /** Именованные пресеты WIP. */
@@ -108,23 +109,27 @@ function preferredTicketForDie(state: FullState, specialty: Specialty, color: st
   const wantCol: ColumnId =
     specialty === 'analysis' ? 'analysisDoing' : specialty === 'development' ? 'devDoing' : 'test'
 
-  const primary = state.tickets
-    .filter((t) => columnOf(state, t.id) === wantCol && !t.blocked)
-    .sort((a, b) => a.work[specialty] - b.work[specialty])
+  // Политика Карлоса: не-тестировщиков не сажаем на тест
+  if (state.testPolicyStrict && specialty !== 'test' && wantCol === 'test') {
+    // fall through to other work
+  } else {
+    const primary = state.tickets
+      .filter((t) => columnOf(state, t.id) === wantCol && !t.blocked)
+      .sort((a, b) => a.work[specialty] - b.work[specialty])
+    if (primary[0]) return primary[0].id
+  }
 
-  if (primary[0]) return primary[0].id
-
-  // fallback: любая doing-колонка с остатком работы этой специальности
   const any = state.tickets.find((t) => {
     const c = workCol(state, t.id)
-    return c && !t.blocked && t.work[specialty] > 0
+    if (!c || t.blocked || t.work[specialty] <= 0) return false
+    if (state.testPolicyStrict && specialty !== 'test' && c === 'test') return false
+    return true
   })
   return any?.id ?? null
 }
 
 function assignAllDice(state: FullState): FullState {
   let s = state
-  // сначала розовый на блокер
   for (const d of s.dice) {
     if (d.assignedTicketId) continue
     if (d.color !== 'pink') continue
@@ -136,12 +141,15 @@ function assignAllDice(state: FullState): FullState {
     if (d.color === 'pink') continue
     let tid = preferredTicketForDie(s, d.specialty, d.color)
     if (!tid) {
-      // посадить на любую карточку в работе
-      const any = s.tickets.find((t) => workCol(s, t.id) && !t.blocked)
+      const any = s.tickets.find((t) => {
+        const c = workCol(s, t.id)
+        if (!c || t.blocked) return false
+        if (s.testPolicyStrict && d.specialty !== 'test' && c === 'test') return false
+        return true
+      })
       tid = any?.id ?? null
     }
     if (!tid) {
-      // создать работу: pull selected → analysis
       const sel = ticketsAt(s, 'selected')[0]
       if (sel) {
         s = pullIntoDoing(s, sel.id)
@@ -198,6 +206,25 @@ function reportCharts(state: FullState) {
       true,
     )
   }
+
+  note('\n═══════════ Потери (−п) к дню 21 ═══════════', true)
+  const loss = computeLostOpportunity(state)
+  if (!loss) {
+    note('  недоступно (финальный биллинг дня 21 ещё не закрыт)', true)
+  } else {
+    note(
+      `потерянные подписчики: ${loss.lostSubscribers} · тариф: $${loss.rate} · потерянный заработок: $${loss.lostRevenue}`,
+      true,
+    )
+    note('тикет | колонка | выбран | LT→21 | −подп.', true)
+    for (const item of loss.items) {
+      note(
+        `  ${item.ticketId.padEnd(5)} | ${item.columnLabel.padEnd(18)} | Д${String(item.daySelected).padStart(2)} | ${String(item.leadTimeIfDay21).padStart(5)} | ${item.lostSubscribers}`,
+        true,
+      )
+    }
+    if (loss.items.length === 0) note('  (незавершённых задач нет — потери $0)', true)
+  }
 }
 
 async function playDay(state: FullState, day: number): Promise<FullState> {
@@ -244,7 +271,14 @@ async function playDay(state: FullState, day: number): Promise<FullState> {
   while (guard-- > 0 && !s.gameOver && s.day === startDay) {
     if (s.activeEvent) {
       note(`  событие: ${s.activeEvent.title}`)
-      s = primaryAction(s)
+      if (s.activeEvent.choice) {
+        const hire = s.activeEvent.choice
+        const yes = s.cash >= hire.cost
+        note(`  выбор найма ${hire.id}: ${yes ? 'Да' : 'Нет'}`)
+        s = primaryAction(s, yes)
+      } else {
+        s = primaryAction(s)
+      }
       continue
     }
 
@@ -327,6 +361,8 @@ interface RunSummary {
   subscribers: number
   deployed: number
   avgLt: number
+  lostSubscribers: number
+  lostRevenue: number
   ok: boolean
   failCount: number
 }
@@ -412,6 +448,7 @@ async function runScenario(name: string, wipOverride: WipLimits | null): Promise
   const byTicket = new Map(state.leadTimeLog.map((e) => [e.ticketId, e]))
   const ltList = [...byTicket.values()]
   const avgLt = ltList.length ? ltList.reduce((s, e) => s + e.leadTime, 0) / ltList.length : 0
+  const loss = computeLostOpportunity(state)
 
   const ok = fails.length === 0
   if (ok) note(`\n✓ Сценарий «${name}» — ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ`, true)
@@ -427,6 +464,8 @@ async function runScenario(name: string, wipOverride: WipLimits | null): Promise
     subscribers: state.subscribers,
     deployed: deployedList.length,
     avgLt,
+    lostSubscribers: loss?.lostSubscribers ?? 0,
+    lostRevenue: loss?.lostRevenue ?? 0,
     ok,
     failCount: fails.length,
   }
@@ -451,11 +490,11 @@ async function main() {
 
   if (summaries.length > 1) {
     note('\n═══════════ Сравнение сценариев ═══════════', true)
-    note('сценарий   | sel/an/dev/te/ex | выпущено | подп. | касса   | ср.LT | статус', true)
+    note('сценарий   | sel/an/dev/te/ex | выпущено | подп. | касса   | ср.LT | −подп | −$     | статус', true)
     for (const s of summaries) {
       const w = `${s.wip.selected}/${s.wip.analysis}/${s.wip.development}/${s.wip.test}/${s.wip.expedite}`
       note(
-        `${s.name.padEnd(10)} | ${w.padEnd(16)} | ${String(s.deployed).padStart(8)} | ${String(s.subscribers).padStart(5)} | $${String(s.cash).padStart(6)} | ${s.avgLt.toFixed(1).padStart(5)} | ${s.ok ? 'OK' : `FAIL×${s.failCount}`}`,
+        `${s.name.padEnd(10)} | ${w.padEnd(16)} | ${String(s.deployed).padStart(8)} | ${String(s.subscribers).padStart(5)} | $${String(s.cash).padStart(6)} | ${s.avgLt.toFixed(1).padStart(5)} | ${String(s.lostSubscribers).padStart(5)} | $${String(s.lostRevenue).padStart(5)} | ${s.ok ? 'OK' : `FAIL×${s.failCount}`}`,
         true,
       )
     }

@@ -6,8 +6,17 @@ export type EventEffect =
   | { type: 'addTicket'; ticket: TicketSeed }
   | { type: 'blocker'; ticketId: string }
   | { type: 'testPolicy'; strict: boolean }
-  | { type: 'hireTester'; id: string; cost: number }
+  | { type: 'offerHire'; id: string; cost: number }
   | { type: 'gameOver' }
+
+export type EventChoice = { type: 'hireTester'; id: string; cost: number }
+
+export type ActiveEvent = {
+  day: number
+  title: string
+  body: string
+  choice?: EventChoice
+}
 
 export interface TicketSeed {
   id: string
@@ -123,16 +132,9 @@ export const EVENTS_BY_DAY: Record<number, GameEvent> = {
   },
   16: {
     day: 16,
-    title: 'Политика Карлоса',
-    body: 'В Тесте работают только тестировщики. Чужие специальности в тесте дают 0 очков, пока политика активна.',
-    effects: [{ type: 'testPolicy', strict: true }],
-  },
-  17: {
-    day: 17,
-    title: 'Политику отменили',
-    body: 'Ограничение снято. В бэклог добавлены S11 и I2. Если выпустите I2 — у всех тикетов с оставшимся тестом тест −1.',
+    title: 'Новые элементы бэклога',
+    body: 'В бэклог добавлены S11 и I2. Если выпустите I2 — у всех тикетов с оставшимся тестом тест −1.',
     effects: [
-      { type: 'testPolicy', strict: false },
       {
         type: 'addTicket',
         ticket: {
@@ -155,17 +157,24 @@ export const EVENTS_BY_DAY: Record<number, GameEvent> = {
       },
     ],
   },
+  17: {
+    day: 17,
+    title: 'Политика Карлоса',
+    body: 'Карлос ввёл правило: в Тесте работают только тестировщики. Других сотрудников на тестирование назначить нельзя.',
+    effects: [{ type: 'testPolicy', strict: true }],
+  },
   18: {
     day: 18,
-    title: 'Оферта HR',
-    body: 'Можно нанять G4 за $500 (если хватает кассы). Биллинг сегодня.',
-    effects: [{ type: 'hireTester', id: 'G4', cost: 500 }],
+    title: 'Политику отменили',
+    body: 'Ограничение Карлоса снято. Сегодня биллинг: выпустите «К релизу» и закройте финансы.',
+    effects: [{ type: 'testPolicy', strict: false }],
   },
   19: {
     day: 19,
-    title: 'Дефект',
-    body: 'Пойман регресс. В бэклог добавлен срочный D1.',
+    title: 'Оферта HR',
+    body: 'Можно нанять тестировщика G4 за $500. Нанимаем? Также в бэклог добавлен срочный дефект D1.',
     effects: [
+      { type: 'offerHire', id: 'G4', cost: 500 },
       {
         type: 'addTicket',
         ticket: {
@@ -181,7 +190,7 @@ export const EVENTS_BY_DAY: Record<number, GameEvent> = {
   20: {
     day: 20,
     title: 'Ещё один срочный',
-    body: 'Появился E2. Брать или нет — решение команды (смотрите WIP срочного).',
+    body: 'Появился E2. Брать или нет — решение команды (смотрите WIP срочного и колонок).',
     effects: [
       {
         type: 'addTicket',
