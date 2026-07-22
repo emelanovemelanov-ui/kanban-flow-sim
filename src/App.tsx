@@ -73,9 +73,9 @@ export default function App() {
         />
         <Controls
           state={state}
-          onClearDie={(dieId) => dispatch({ type: 'clearDie', dieId })}
           onWip={(key, delta) => dispatch({ type: 'wip', key, delta })}
         />
+
       </div>
       <EventModal state={state} onAck={() => dispatch({ type: 'primary' })} />
       {chart && <ChartsModal state={state} kind={chart} onClose={() => setChart(null)} />}
