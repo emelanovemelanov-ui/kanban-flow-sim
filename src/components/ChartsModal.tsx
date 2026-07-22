@@ -1,8 +1,9 @@
 import type { FullState } from '../game/engine'
 import type { CfdPoint } from '../game/events'
+import { computeLostOpportunity } from '../game/opportunity'
 import type { TicketClass } from '../game/types'
 
-export type ChartKind = 'cfd' | 'finance' | 'cycle'
+export type ChartKind = 'cfd' | 'finance' | 'cycle' | 'loss'
 
 interface ChartsModalProps {
   state: FullState
@@ -30,6 +31,7 @@ const TITLES: Record<ChartKind, string> = {
   cfd: 'Cumulative Flow Diagram',
   finance: 'Financial Summary',
   cycle: 'Cycle Time (Lead Time)',
+  loss: 'Потери к дню 21',
 }
 
 export function ChartsModal({ state, kind, onClose }: ChartsModalProps) {
@@ -51,11 +53,14 @@ export function ChartsModal({ state, kind, onClose }: ChartsModalProps) {
           {kind === 'cfd' && <CfdChart points={state.cfd} />}
           {kind === 'finance' && <FinanceChart log={state.financeLog} />}
           {kind === 'cycle' && <CycleChart entries={state.leadTimeLog} />}
+          {kind === 'loss' && <LossChart state={state} />}
         </div>
         <p className="chart-caption">
           {kind === 'cfd' && 'Снимок количества карточек по стадиям на конец каждого дня (как в getKanban CFD).'}
           {kind === 'finance' && 'Биллинг каждые 3 дня: подписчики × тариф − штрафы → прибыль нарастающим итогом.'}
           {kind === 'cycle' && 'Lead time = день выпуска − день выбора. Каждая точка — выпущенный тикет.'}
+          {kind === 'loss' &&
+            'Доступно после закрытия биллинга дня 21: незавершённые задачи × тариф $300.'}
         </p>
       </div>
     </div>
@@ -363,6 +368,87 @@ function CycleChart({
                 <td>{count}</td>
               </tr>
             ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function LossChart({ state }: { state: FullState }) {
+  const loss = computeLostOpportunity(state)
+
+  if (!loss) {
+    return (
+      <p className="chart-empty">
+        Результат появится после финального биллинга дня 21 — перед окончанием игры.
+      </p>
+    )
+  }
+
+  if (loss.items.length === 0) {
+    return (
+      <div className="chart-svg-wrap">
+        <div className="loss-summary" role="group" aria-label="Итог потерь">
+          <div className="loss-stat">
+            <span>Потерянные подписчики</span>
+            <strong>0</strong>
+          </div>
+          <div className="loss-stat">
+            <span>Тариф дня {loss.asOfDay}</span>
+            <strong>${loss.rate}</strong>
+          </div>
+          <div className="loss-stat loss-stat-accent">
+            <span>Потерянный заработок</span>
+            <strong>$0</strong>
+          </div>
+        </div>
+        <p className="chart-empty">Все взятые в работу задачи к дню 21 выпущены — потерь нет.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="chart-svg-wrap">
+      <div className="loss-summary" role="group" aria-label="Итог потерь">
+        <div className="loss-stat">
+          <span>Потерянные подписчики</span>
+          <strong>{loss.lostSubscribers}</strong>
+        </div>
+        <div className="loss-stat">
+          <span>Тариф дня {loss.asOfDay}</span>
+          <strong>${loss.rate}</strong>
+        </div>
+        <div className="loss-stat loss-stat-accent">
+          <span>Потерянный заработок</span>
+          <strong>${loss.lostRevenue}</strong>
+        </div>
+      </div>
+      <p className="loss-formula">
+        {loss.lostSubscribers} подп. × ${loss.rate} = ${loss.lostRevenue}
+      </p>
+      <table className="chart-table">
+        <thead>
+          <tr>
+            <th>Тикет</th>
+            <th>Колонка</th>
+            <th>Выбран</th>
+            <th>LT→21</th>
+            <th>−подп.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loss.items.map((item) => (
+            <tr key={item.ticketId}>
+              <td>
+                {item.ticketId}
+                <span className="loss-ticket-title"> · {item.title}</span>
+              </td>
+              <td>{item.columnLabel}</td>
+              <td>Д{item.daySelected}</td>
+              <td>{item.leadTimeIfDay21}</td>
+              <td>{item.lostSubscribers || '—'}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

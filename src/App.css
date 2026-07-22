@@ -1017,3 +1017,56 @@ button {
   background: var(--paper-2);
   font-weight: 600;
 }
+
+.loss-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.loss-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.loss-stat span {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.loss-stat strong {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2a3a3e;
+}
+
+.loss-stat-accent {
+  border-color: #c05454;
+  background: #fdf6f5;
+}
+
+.loss-stat-accent strong {
+  color: #a03a3a;
+}
+
+.loss-formula {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #4a5558;
+}
+
+.loss-ticket-title {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@media (max-width: 560px) {
+  .loss-summary {
+    grid-template-columns: 1fr;
+  }
+}

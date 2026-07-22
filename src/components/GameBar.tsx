@@ -83,6 +83,14 @@ export function GameBar({ state, onPrimary, onReset, onClearWorker, onOpenChart 
         <button type="button" className="btn-chart" onClick={() => onOpenChart('cycle')} title="Cycle / Lead time">
           LT
         </button>
+        <button
+          type="button"
+          className="btn-chart"
+          onClick={() => onOpenChart('loss')}
+          title="Потери: только после финального биллинга дня 21"
+        >
+          −п
+        </button>
       </div>
 
       <button type="button" className="btn-start" onClick={onPrimary} disabled={state.gameOver && !state.activeEvent}>
@@ -97,7 +105,7 @@ export function GameBar({ state, onPrimary, onReset, onClearWorker, onOpenChart 
       <button
         type="button"
         className="btn-help"
-        title="Цикл дня: стендап → назначение → бросок → (биллинг: релиз+финансы) → событие → следующий день. Кнопки CFD / $ / LT открывают графики."
+        title="Цикл дня: стендап → назначение → бросок → (биллинг: релиз+финансы) → событие → следующий день. Кнопки CFD / $ / LT / −п открывают графики и потери."
       >
         ?
       </button>
