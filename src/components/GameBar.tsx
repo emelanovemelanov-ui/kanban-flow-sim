@@ -8,13 +8,25 @@ import type { ChartKind } from './ChartsModal'
 
 interface GameBarProps {
   state: FullState
+  playerName: string
   onPrimary: () => void
   onReset: () => void
   onClearWorker: (dieId: string) => void
   onOpenChart: (kind: ChartKind) => void
+  onOpenHelp: () => void
+  onOpenLeaderboard: () => void
 }
 
-export function GameBar({ state, onPrimary, onReset, onClearWorker, onOpenChart }: GameBarProps) {
+export function GameBar({
+  state,
+  playerName,
+  onPrimary,
+  onReset,
+  onClearWorker,
+  onOpenChart,
+  onOpenHelp,
+  onOpenLeaderboard,
+}: GameBarProps) {
   const [poolOver, setPoolOver] = useState(false)
   const canAssign = !state.gameOver && !state.rolledThisDay && (state.step === 'standup' || state.step === 'work')
   const free = state.dice.filter((d) => !d.assignedTicketId)
@@ -24,7 +36,7 @@ export function GameBar({ state, onPrimary, onReset, onClearWorker, onOpenChart 
       <div className="brand">
         <span className="brand-mark">Kanban</span>
         <span className="brand-ver">
-          <span className="brand-techvill">ТехВилл</span> учебная версия
+          <span className="brand-techvill">ТехВилл</span> · {playerName}
         </span>
       </div>
 
@@ -105,9 +117,18 @@ export function GameBar({ state, onPrimary, onReset, onClearWorker, onOpenChart 
       <button
         type="button"
         className="btn-help"
-        title="Цикл дня: стендап → назначение → бросок → (биллинг: релиз+финансы) → событие → следующий день. Кнопки CFD / $ / LT / −п открывают графики и потери."
+        title="Справка: правила, легенда и как начать играть"
+        onClick={onOpenHelp}
       >
         ?
+      </button>
+      <button
+        type="button"
+        className="btn-chart"
+        title="Таблица лидеров"
+        onClick={onOpenLeaderboard}
+      >
+        Топ
       </button>
       <button type="button" className="btn-exit" onClick={onReset}>
         Сброс
