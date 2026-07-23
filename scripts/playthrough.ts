@@ -10,12 +10,11 @@ import {
   assignDie,
   columnOf,
   countWip,
-  createInitialState,
   dropTicket,
   pullIntoDoing,
   type FullState,
 } from '../src/game/engine'
-import { primaryAction } from '../src/game/flow'
+import { primaryAction, startPlaythroughState } from '../src/game/flow'
 import { computeLostOpportunity } from '../src/game/opportunity'
 import type { ColumnId, Specialty, WipLimits } from '../src/game/types'
 
@@ -232,7 +231,22 @@ async function playDay(state: FullState, day: number): Promise<FullState> {
 
   let s = state
   assert(s.day === day, `ожидали день ${day}, получили ${s.day}`)
-  assert(s.step === 'standup', `день ${day}: старт не standup, а ${s.step}`)
+
+  // Утреннее событие дня — до стендапа
+  let eventGuard = 5
+  while (s.activeEvent && eventGuard-- > 0) {
+    note(`  утро, событие: ${s.activeEvent.title}`)
+    if (s.activeEvent.choice) {
+      const hire = s.activeEvent.choice
+      const yes = s.cash >= hire.cost
+      note(`  выбор найма ${hire.id}: ${yes ? 'Да' : 'Нет'}`)
+      s = primaryAction(s, yes)
+    } else {
+      s = primaryAction(s)
+    }
+  }
+  assert(s.step === 'standup', `день ${day}: после события ожидался standup, а ${s.step}`)
+  assert(!s.activeEvent, `день ${day}: событие должно быть закрыто перед стендапом`)
 
   // Сначала двигаем очередь, потом снова заполняем «К работе» до WIP (требование finishStandup)
   s = advanceQueue(s)
@@ -373,7 +387,7 @@ async function runScenario(name: string, wipOverride: WipLimits | null): Promise
   note(`█  Сценарий WIP: ${name}`, true)
   note(`████████████████████████████████████████████████████`, true)
 
-  let state = createInitialState()
+  let state = startPlaythroughState()
   if (wipOverride) state = { ...state, wip: { ...wipOverride } }
 
   note(

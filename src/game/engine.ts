@@ -53,7 +53,7 @@ export function createInitialState(): FullState {
     .filter((t) => START_COLUMNS[t.id] === 'deployed')
     .reduce((sum, t) => sum + (t.subscribers ?? 0), 0)
   const placement = { ...START_COLUMNS }
-  const cfd0 = snapshotCfd(8, placement, tickets.map((t) => t.id))
+  const cfd0 = snapshotCfd(8, placement, tickets)
 
   return {
     day: START_DAY,
@@ -122,7 +122,12 @@ export function isBillingDay(day: number): boolean {
 }
 
 export function columnOf(state: FullState, ticketId: string): ColumnId {
-  return state.placement[ticketId] ?? 'options'
+  const placed = state.placement[ticketId]
+  if (placed) return placed
+  // После биллинга выпущенные уходят с доски (нет placement), но логически — «Выпущено»
+  const ticket = state.tickets.find((t) => t.id === ticketId)
+  if (ticket?.dayDeployed != null) return 'deployed'
+  return 'options'
 }
 
 export function ticketsIn(state: FullState, column: ColumnId, expediteOnly = false): Ticket[] {
@@ -732,13 +737,28 @@ export function completeFinance(state: FullState): FullState {
     profitToDate,
   }
 
+  // После биллинга выпущенные карточки уходят с доски (остаются в учёте по dayDeployed)
+  const placement = { ...state.placement }
+  const leftBoard: string[] = []
+  for (const [id, col] of Object.entries(placement)) {
+    if (col === 'deployed') {
+      delete placement[id]
+      leftBoard.push(id)
+    }
+  }
+
   return {
     ...state,
     subscribers: totalSubscribers,
     cash: profitToDate,
     financeLog: [...state.financeLog.filter((f) => f.day !== state.day), entry],
     deployedThisCycle: [],
-    message: `Биллинг дня ${state.day}: +${newSubs} подп., выручка $${revenue}, штрафы $${fines}, прибыль $${profitToDate}.`,
+    placement,
+    selectedTicketId:
+      state.selectedTicketId && leftBoard.includes(state.selectedTicketId) ? null : state.selectedTicketId,
+    message: `Биллинг дня ${state.day}: +${newSubs} подп., выручка $${revenue}, штрафы $${fines}, прибыль $${profitToDate}.${
+      leftBoard.length ? ` С доски ушли: ${leftBoard.join(', ')}.` : ''
+    }`,
   }
 }
 

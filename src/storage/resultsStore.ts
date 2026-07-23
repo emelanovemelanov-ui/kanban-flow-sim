@@ -1,5 +1,5 @@
 import type { CfdPoint } from '../game/events'
-import { columnOf, type FullState } from '../game/engine'
+import { type FullState } from '../game/engine'
 import { computeLostOpportunity } from '../game/opportunity'
 import type { FinanceCycle, TicketClass, WipLimits } from '../game/types'
 
@@ -86,7 +86,7 @@ export function savePlayerRun(playerName: string, state: FullState): PlayerRun {
   const avgLeadTime =
     leadTimeLog.length === 0 ? 0 : leadTimeLog.reduce((s, e) => s + e.leadTime, 0) / leadTimeLog.length
   const loss = computeLostOpportunity(state)
-  const deployedCount = state.tickets.filter((t) => columnOf(state, t.id) === 'deployed').length
+  const deployedCount = state.tickets.filter((t) => t.dayDeployed != null).length
 
   const run: PlayerRun = {
     id: newId(),

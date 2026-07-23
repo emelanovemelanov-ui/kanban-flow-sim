@@ -10,14 +10,13 @@ import { LeaderboardModal } from './components/LeaderboardModal'
 import { RegistrationScreen } from './components/RegistrationScreen'
 import {
   assignDie,
-  createInitialState,
   dropTicket,
   selectTicket,
   setWip,
   type DropTarget,
   type FullState,
 } from './game/engine'
-import { primaryAction } from './game/flow'
+import { primaryAction, startPlaythroughState } from './game/flow'
 import type { WipLimits } from './game/types'
 import { savePlayerRun, type PlayerRun } from './storage/resultsStore'
 import './App.css'
@@ -53,7 +52,7 @@ function reducer(state: FullState, action: Action): FullState {
     case 'drop':
       return dropTicket(state, action.ticketId, action.target)
     case 'reset':
-      return createInitialState()
+      return startPlaythroughState()
     default:
       return state
   }
@@ -62,7 +61,7 @@ function reducer(state: FullState, action: Action): FullState {
 export default function App() {
   const [phase, setPhase] = useState<Phase>('register')
   const [playerName, setPlayerName] = useState('')
-  const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
+  const [state, dispatch] = useReducer(reducer, undefined, startPlaythroughState)
   const [chart, setChart] = useState<ChartKind | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
   const [leaderboardOpen, setLeaderboardOpen] = useState(false)

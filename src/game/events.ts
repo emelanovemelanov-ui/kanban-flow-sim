@@ -207,8 +207,8 @@ export const EVENTS_BY_DAY: Record<number, GameEvent> = {
   21: {
     day: 21,
     title: 'Финишный день',
-    body: 'Последний биллинг и выставка (F2). После события игра завершится.',
-    effects: [{ type: 'gameOver' }],
+    body: 'Последний день симуляции. Сегодня финальный биллинг и выставка (F2). После закрытия биллинга партия завершится.',
+    effects: [{ type: 'message' }],
   },
 }
 
@@ -222,10 +222,19 @@ export type CfdPoint = {
   selected: number
 }
 
-export function snapshotCfd(day: number, placement: Record<string, ColumnId>, ticketIds: string[]): CfdPoint {
+export function snapshotCfd(
+  day: number,
+  placement: Record<string, ColumnId>,
+  tickets: { id: string; dayDeployed: number | null }[],
+): CfdPoint {
   const counts = { deployed: 0, ready: 0, test: 0, dev: 0, analysis: 0, selected: 0 }
-  for (const id of ticketIds) {
-    const c = placement[id] ?? 'options'
+  for (const t of tickets) {
+    // Накопительный «Выпущено»: и на доске, и уже снятые после биллинга
+    if (t.dayDeployed != null) {
+      counts.deployed++
+      continue
+    }
+    const c = placement[t.id] ?? 'options'
     if (c === 'deployed') counts.deployed++
     else if (c === 'ready') counts.ready++
     else if (c === 'test') counts.test++

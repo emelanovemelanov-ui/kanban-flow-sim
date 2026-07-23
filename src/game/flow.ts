@@ -1,6 +1,7 @@
 import { EVENTS_BY_DAY, hydrateTicket, makeDie, snapshotCfd, type GameEvent } from './events'
 import {
   completeFinance,
+  createInitialState,
   deployReady,
   endDay,
   finishStandup,
@@ -11,11 +12,7 @@ import {
 import type { DayStep } from './types'
 
 export function trackCharts(state: FullState): FullState {
-  const point = snapshotCfd(
-    state.day,
-    state.placement,
-    state.tickets.map((t) => t.id),
-  )
+  const point = snapshotCfd(state.day, state.placement, state.tickets)
   const cfd = [...state.cfd.filter((p) => p.day !== state.day), point]
   const byTicket = new Map(state.leadTimeLog.map((e) => [e.ticketId, e]))
   for (const id of state.deployedThisCycle) {
@@ -143,20 +140,40 @@ export function acknowledgeEvent(state: FullState, answer?: boolean): FullState 
     }
   }
 
-  if (cleared.pendingGameOver || cleared.day >= 21) {
+  // Событие — утро текущего дня: после принятия идём в стендап, день не сдвигаем
+  return {
+    ...cleared,
+    step: 'standup',
+    message:
+      cleared.message.startsWith('Нанят') || cleared.message.includes('Найм')
+        ? `${cleared.message} День ${cleared.day}: стендап.`
+        : `День ${cleared.day}: стендап — WIP, пополнение «К работе», назначение сотрудников.`,
+  }
+}
+
+/** Конец рабочего дня → следующий календарный день + утреннее событие (или финал на дне 21). */
+function finishDayCycle(state: FullState): FullState {
+  if (state.day >= 21) {
     return {
-      ...cleared,
+      ...state,
       gameOver: true,
+      pendingGameOver: false,
       step: 'event',
-      message: `Игра окончена! Итоговая прибыль: $${cleared.cash}. Подписчики: ${cleared.subscribers}.`,
+      activeEvent: null,
+      message: `Игра окончена! Итоговая прибыль: $${state.cash}. Подписчики: ${state.subscribers}.`,
     }
   }
-  return endDay(cleared)
+  return presentEvent(endDay(state))
+}
+
+/** Старт новой партии: день 9 сразу с утренним событием. */
+export function startPlaythroughState(): FullState {
+  return presentEvent(createInitialState())
 }
 
 /**
  * Единый алгоритм главной кнопки по ТЗ:
- * standup → work(roll) → [deploy → charts → finance] | charts → event → next day
+ * event(утро) → standup → work(roll) → [deploy → charts → finance] → следующий день
  */
 export function primaryAction(state: FullState, eventAnswer?: boolean): FullState {
   if (state.gameOver) {
@@ -181,12 +198,11 @@ export function primaryAction(state: FullState, eventAnswer?: boolean): FullStat
       if (isBillingDay(state.day)) {
         return { ...state, step: 'deploy', message: 'Биллинг: выпустите тикеты из «К релизу».' }
       }
-      return trackCharts({ ...state, step: 'charts' })
+      return finishDayCycle(trackCharts({ ...state, step: 'charts' }))
     }
 
     case 'deploy': {
       const deployed = deployReady(state)
-      // deployReady sets step finance or charts; normalize to charts then finance
       const charted = trackCharts({ ...deployed, step: 'charts' })
       return { ...charted, step: 'finance', message: `${deployed.message} Далее — биллинг.` }
     }
@@ -196,12 +212,12 @@ export function primaryAction(state: FullState, eventAnswer?: boolean): FullStat
       if (isBillingDay(state.day) && !state.financeLog.some((f) => f.day === state.day)) {
         return { ...charted, step: 'finance', message: 'Графики готовы. Закройте биллинг.' }
       }
-      return presentEvent({ ...charted, step: 'event' })
+      return finishDayCycle(charted)
     }
 
     case 'finance': {
       const financed = completeFinance(state)
-      return presentEvent({ ...financed, step: 'event' })
+      return finishDayCycle(financed)
     }
 
     case 'event':
@@ -221,7 +237,7 @@ export function primaryLabel(state: FullState): string {
   if (state.step === 'work' && !state.rolledThisDay) return 'Бросить кубики'
   if (state.step === 'work') return 'Далее'
   if (state.step === 'deploy') return 'Выпустить'
-  if (state.step === 'charts') return 'К событию'
+  if (state.step === 'charts') return 'Завершить день'
   if (state.step === 'finance') return 'Закрыть биллинг'
   if (state.step === 'event') return 'Событие дня'
   return 'Далее'
