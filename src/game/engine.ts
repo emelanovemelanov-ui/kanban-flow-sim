@@ -85,7 +85,10 @@ export function createInitialState(): FullState {
 
 /** Держим в Options не меньше OPTIONS_VISIBLE_MIN, пока есть скрытая колода. */
 export function replenishOptions(state: FullState): FullState {
-  let optionsCount = state.tickets.filter((t) => columnOf(state, t.id) === 'options' && !t.expediteLane).length
+  // Считаем только реально видимые на доске (placement), не «логические» columnOf
+  let optionsCount = state.tickets.filter(
+    (t) => state.placement[t.id] === 'options' && !t.expediteLane,
+  ).length
   if (optionsCount >= OPTIONS_VISIBLE_MIN || state.optionsDeck.length === 0) {
     return state
   }
@@ -97,7 +100,10 @@ export function replenishOptions(state: FullState): FullState {
 
   while (optionsCount < OPTIONS_VISIBLE_MIN && deck.length > 0) {
     const next = deck.shift()!
-    if (tickets.some((t) => t.id === next.id)) continue
+    if (tickets.some((t) => t.id === next.id)) {
+      // ID уже на столе (не должно случаться) — карточку колоды отбрасываем, не зацикливаемся
+      continue
+    }
     tickets.push(next)
     placement[next.id] = 'options'
     added.push(next.id)
@@ -115,6 +121,12 @@ export function replenishOptions(state: FullState): FullState {
     optionsDeck: deck,
     message: `${state.message} · в бэклог: ${added.join(', ')}`,
   }
+}
+
+/** Есть ли ещё что тянуть в «К работе» (видимый бэклог или скрытая колода). */
+export function canPullFromBacklog(state: FullState): boolean {
+  if (state.optionsDeck.length > 0) return true
+  return state.tickets.some((t) => state.placement[t.id] === 'options')
 }
 
 export function isBillingDay(day: number): boolean {
@@ -819,23 +831,27 @@ export function endDay(state: FullState): FullState {
 
 export function finishStandup(state: FullState): FullState {
   const selectedCount = countWip(state, 'selected')
-  if (selectedCount < state.wip.selected) {
+  if (selectedCount < state.wip.selected && canPullFromBacklog(state)) {
     return {
       ...state,
       message: `В «К работе» ${selectedCount}/${state.wip.selected}. Доберите из бэклога или снизьте WIP «К работе».`,
     }
   }
+  const backlogEmptyNote =
+    selectedCount < state.wip.selected && !canPullFromBacklog(state)
+      ? ` Бэклог и колода пусты — «К работе» ${selectedCount}/${state.wip.selected}.`
+      : ''
   const unassigned = state.dice.filter((d) => !d.assignedTicketId)
   if (unassigned.length > 0) {
     return {
       ...state,
       step: 'work',
-      message: `Стендап завершён. Назначьте сотрудников (${unassigned.map((d) => d.id).join(', ')}) и бросайте кубики.`,
+      message: `Стендап завершён.${backlogEmptyNote} Назначьте сотрудников (${unassigned.map((d) => d.id).join(', ')}) и бросайте кубики.`,
     }
   }
   return {
     ...state,
     step: 'work',
-    message: 'Стендап завершён. Все сотрудники назначены — можно бросать кубики.',
+    message: `Стендап завершён.${backlogEmptyNote || ' Все сотрудники назначены — можно бросать кубики.'}`,
   }
 }

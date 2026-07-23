@@ -93,7 +93,14 @@ export function Board({ state, onSelectTicket, onDropTicket, onAssignWorker }: B
         <div className="th th-corner" />
 
         {/* шапка ряд 1–2 */}
-        <div className="th th-rspan">Бэклог</div>
+        <div className="th th-rspan" title="Видимые карточки + скрытая колода пополнения">
+          Бэклог
+          {state.optionsDeck.length > 0 ? (
+            <span className="deck-remain"> +{state.optionsDeck.length}</span>
+          ) : (
+            <span className="deck-remain deck-empty"> · колода пуста</span>
+          )}
+        </div>
         <div className={`th th-rspan${selectedCount > state.wip.selected ? ' over-wip' : ''}`}>
           К работе ({state.wip.selected})
         </div>

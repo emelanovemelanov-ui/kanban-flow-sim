@@ -6,6 +6,7 @@ import {
   endDay,
   finishStandup,
   isBillingDay,
+  replenishOptions,
   rollDice,
   type FullState,
 } from './engine'
@@ -141,14 +142,14 @@ export function acknowledgeEvent(state: FullState, answer?: boolean): FullState 
   }
 
   // Событие — утро текущего дня: после принятия идём в стендап, день не сдвигаем
-  return {
+  return replenishOptions({
     ...cleared,
     step: 'standup',
     message:
       cleared.message.startsWith('Нанят') || cleared.message.includes('Найм')
         ? `${cleared.message} День ${cleared.day}: стендап.`
         : `День ${cleared.day}: стендап — WIP, пополнение «К работе», назначение сотрудников.`,
-  }
+  })
 }
 
 /** Конец рабочего дня → следующий календарный день + утреннее событие (или финал на дне 21). */

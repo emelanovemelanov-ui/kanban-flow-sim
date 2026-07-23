@@ -464,6 +464,19 @@ button {
   grid-row: 1 / 3;
 }
 
+.deck-remain {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5a6a6e;
+  letter-spacing: 0.02em;
+}
+
+.deck-remain.deck-empty {
+  color: #a05a3a;
+}
+
 .th-cspan {
   grid-row: 1;
 }

@@ -242,7 +242,7 @@ function initialOptionsVisible(): Ticket[] {
 /**
  * Скрытая колода Options (как в getKanban): при уходе карточки в «К работе»
  * из колоды в бэклог выходит следующая, пока колода не кончится.
- * ID не пересекаются с событийными S11 / I2 / E1 / E2 / D1.
+ * ID не пересекаются с событийными S11 / I2 / E1 / E2 / D1 и стартовой доской.
  */
 export function createOptionsDeck(): Ticket[] {
   const standards: { id: string; title: string; valueBand: ValueBand; estSubs: number }[] = [
@@ -262,6 +262,27 @@ export function createOptionsDeck(): Ticket[] {
     { id: 'S26', title: 'Webhooks', valueBand: 'med', estSubs: 7 },
     { id: 'S27', title: 'A/B тесты', valueBand: 'low', estSubs: 5 },
     { id: 'I3', title: 'Обновление SDK', valueBand: 'med', estSubs: 0 },
+    // Запас на всю партию 9–21: иначе при WIP «К работе»=5 колода кончается к середине
+    { id: 'S28', title: 'Пуш-уведомления', valueBand: 'med', estSubs: 8 },
+    { id: 'S29', title: 'Избранное', valueBand: 'low', estSubs: 5 },
+    { id: 'S30', title: 'Рекомендации', valueBand: 'high', estSubs: 14 },
+    { id: 'S31', title: 'Онбординг', valueBand: 'med', estSubs: 9 },
+    { id: 'S32', title: 'Фильтры каталога', valueBand: 'med', estSubs: 7 },
+    { id: 'S33', title: 'Отзывы клиентов', valueBand: 'high', estSubs: 12 },
+    { id: 'S34', title: 'Возвраты', valueBand: 'med', estSubs: 8 },
+    { id: 'S35', title: 'Складской учёт', valueBand: 'high', estSubs: 11 },
+    { id: 'S36', title: 'Промо-лендинги', valueBand: 'low', estSubs: 4 },
+    { id: 'S37', title: 'API партнёров', valueBand: 'med', estSubs: 8 },
+    { id: 'S38', title: 'Двухфакторка', valueBand: 'high', estSubs: 10 },
+    { id: 'S39', title: 'Тёмная тема', valueBand: 'low', estSubs: 3 },
+    { id: 'S40', title: 'Подписки', valueBand: 'high', estSubs: 13 },
+    { id: 'S41', title: 'Календарь доставок', valueBand: 'med', estSubs: 7 },
+    { id: 'S42', title: 'Бонусные баллы', valueBand: 'med', estSubs: 9 },
+    { id: 'S43', title: 'Живой поиск', valueBand: 'high', estSubs: 12 },
+    { id: 'S44', title: 'Экспорт Excel', valueBand: 'low', estSubs: 5 },
+    { id: 'S45', title: 'Внутренний чат', valueBand: 'med', estSubs: 8 },
+    { id: 'I4', title: 'Миграция БД', valueBand: 'med', estSubs: 0 },
+    { id: 'I5', title: 'Мониторинг ошибок', valueBand: 'med', estSubs: 0 },
   ]
 
   return standards.map((s) =>
